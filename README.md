@@ -241,7 +241,7 @@ The software:
 The test application is provided in:
 
 ``` text
-software/distance_test.c
+fpga/distance_test.c
 ```
 
 ------------------------------------------------------------------------
@@ -261,10 +261,11 @@ Hardware-Software-Co-Design-for-Shape-Feature-Extraction/
 ├── software/
 │   ├── image_boundary_extraction.py
 │   ├── requirements.txt
-│   └── distance_test.c
+│  
 │
 └── fpga/
     └── distance_ip_v1_0_S00_AXI.v
+    └── distance_test.c
 ```
 
 ------------------------------------------------------------------------
@@ -325,17 +326,6 @@ Weighted Cityblock
 Squared Euclidean
 Direction (0–7)
 ```
-
-------------------------------------------------------------------------
-
-## Project Documentation
-
-Additional documentation is available in the [`docs`](docs/) directory.
-
--   [`architecture.md`](docs/architecture.md) -- system architecture and
-    hardware--software partitioning
--   [`implementation-notes.md`](docs/implementation-notes.md) --
-    implementation details and development notes
 
 ------------------------------------------------------------------------
 
