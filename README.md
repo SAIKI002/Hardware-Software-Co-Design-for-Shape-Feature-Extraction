@@ -1,139 +1,211 @@
-# Hardware–Software Co-Design for Shape Feature Extraction
+# Hardware--Software Co-Design for Shape Feature Extraction
 
-A Raspberry Pi–FPGA co-design project for extracting **boundary-based geometric features** from binary images and accelerating distance computation on a Spartan-7 FPGA.
+A hardware--software co-design system for **boundary-based shape feature
+extraction**, combining Raspberry Pi image processing with **Spartan-7
+FPGA-based computation**. The system extracts ordered boundary
+coordinates from binary images and transfers coordinate data to the
+FPGA, where a MicroBlaze processor and custom AXI4-Lite IP perform
+directional and distance-based feature computation.
 
-> **Implementation note:** The academic report contains theory on 8-directional chain codes, but a complete chain-code feature extractor was **not implemented as a standalone feature in the final system**. This repository therefore does **not** claim chain-code generation as a completed implementation. The implemented system focuses on boundary-coordinate extraction, directional movement classification, and FPGA-based distance computation.
+The project demonstrates a hardware--software partitioning approach in
+which image processing is performed on the Raspberry Pi while
+computational feature extraction is implemented on the FPGA.
+
+------------------------------------------------------------------------
 
 ## Overview
 
-The Raspberry Pi performs the image-processing stages:
+The system processes an input image through the following stages:
 
-1. Load and resize the image to `256 × 256`.
-2. Convert the image to grayscale.
-3. Apply Otsu thresholding to obtain a binary image.
-4. Detect the external contour using OpenCV.
-5. Extract ordered boundary coordinates.
-6. Form consecutive coordinate pairs.
-7. Transfer coordinate data toward the FPGA over UART.
+1.  Image loading and resizing to `256 × 256`.
+2.  Grayscale conversion.
+3.  Binary image generation using thresholding.
+4.  External contour detection using OpenCV.
+5.  Extraction of ordered boundary coordinates.
+6.  Formation of consecutive coordinate pairs.
+7.  Transfer of coordinate data to the FPGA through UART.
+8.  Computation of coordinate differences and directional movement.
+9.  Computation of multiple distance metrics using the FPGA-based
+    feature extraction IP.
 
-The FPGA side contains a custom AXI4-Lite distance-computation IP integrated with a MicroBlaze-based Vivado design. The hardware computes:
+------------------------------------------------------------------------
 
-- `dx`, `dy`
-- D4 / Manhattan distance
-- D8 / Chessboard distance
-- Weighted Cityblock distance
-- Squared Euclidean distance
+## System Architecture
 
-A directional value (0–7) is also derived from the sign of `dx` and `dy`. This is a directional movement classification and should not be presented as a complete chain-code implementation.
-
-## Hardware
-
-- Raspberry Pi 4B
-- Spartan-7 FPGA board
-- UART connection between Raspberry Pi and FPGA
-- Vivado + MicroBlaze
-- Custom AXI4-Lite peripheral for distance computation
-
-## Implemented Architecture
-
-```text
+``` text
                  RASPBERRY PI 4B
         ┌─────────────────────────────┐
         │ Image Input                 │
-        │      ↓                      │
-        │ Grayscale + Thresholding    │
-        │      ↓                      │
+        │       ↓                     │
+        │ Grayscale Conversion        │
+        │       ↓                     │
+        │ Thresholding / Binary Image │
+        │       ↓                     │
         │ Contour Extraction          │
-        │      ↓                      │
+        │       ↓                     │
         │ Boundary Coordinates        │
-        │      ↓                      │
+        │       ↓                     │
         │ Coordinate Pair Formation   │
         └─────────────┬───────────────┘
                       │ UART
                       ↓
-              ┌─────────────────┐
-              │ Spartan-7 FPGA  │
-              │                 │
-              │ UART / MicroBlaze
-              │       ↓         │
-              │ AXI4-Lite IP    │
-              │       ↓         │
-              │ dx, dy          │
-              │ D4, D8          │
-              │ Weighted        │
-              │ Squared Euclid. │
-              │ Direction       │
-              └────────┬────────┘
-                       │
-                       │ UART
-                       ↓
-                 Raspberry Pi
-                 Output Display
+              ┌─────────────────────┐
+              │    Spartan-7 FPGA   │
+              │     MicroBlaze      │
+              │         ↓           │
+              │    AXI4-Lite IP     │
+              │         ↓           │
+              │    dx / dy          │
+              │ Direction (0–7)     │
+              │ D4 / D8             │
+              │ Weighted Cityblock  │
+              │ Squared Euclidean   │
+              └─────────────────────┘
 ```
 
-## Repository Structure
+------------------------------------------------------------------------
 
-```text
-shape-feature-extraction-fpga/
-├── README.md
-├── software/
-│   └── raspberry_pi/
-│       ├── image_boundary_extraction.py
-│       └── requirements.txt
-├── fpga/
-│   ├── custom_ip/
-│   │   └── distance_ip_v1_0_S00_AXI.v
-│   └── microblaze/
-│       └── distance_test.c
-├── vivado/
-│   └── README.md
-├── docs/
-│   ├── architecture.md
-│   ├── implementation-notes.md
-│   └── images/
-└── LICENSE
+## Hardware
+
+-   **Raspberry Pi 4B** -- image preprocessing and boundary-coordinate
+    extraction
+-   **Spartan-7 FPGA board** -- hardware-based feature computation
+-   **MicroBlaze processor** -- embedded processing within the FPGA
+    design
+-   **Custom AXI4-Lite IP** -- memory-mapped coordinate and distance
+    computation
+-   **UART** -- communication between Raspberry Pi and FPGA
+
+## Software and Tools
+
+### Raspberry Pi
+
+-   Python
+-   OpenCV
+-   NumPy
+-   PySerial
+
+### FPGA
+
+-   Xilinx Vivado
+-   MicroBlaze
+-   Verilog HDL
+-   AXI4-Lite
+-   Xilinx SDK
+
+------------------------------------------------------------------------
+
+## Image Processing
+
+The Raspberry Pi performs the image-processing portion using Python and
+OpenCV.
+
+``` text
+Input Image
+     ↓
+Resize to 256 × 256
+     ↓
+Grayscale Conversion
+     ↓
+Thresholding
+     ↓
+Binary Image
+     ↓
+External Contour Detection
+     ↓
+Ordered Boundary Coordinates
 ```
 
-## Distance Features
+The extracted contour coordinates are organized into consecutive point
+pairs:
 
-For two boundary points `(x1, y1)` and `(x2, y2)`:
+``` text
+(x1, y1) → (x2, y2)
+(x2, y2) → (x3, y3)
+(x3, y3) → ...
+```
 
-- `dx = x2 - x1`
-- `dy = y2 - y1`
-- D4 = `|dx| + |dy|`
-- D8 = `max(|dx|, |dy|)`
-- Weighted Cityblock = hardware implementation uses `|dx| + 2|dy|`
-- Squared Euclidean = `dx² + dy²`
+These coordinate pairs form the input to the FPGA-based feature
+computation stage.
 
-The squared form is used instead of an actual square-root Euclidean calculation to avoid the additional hardware cost of a square-root operation.
+------------------------------------------------------------------------
 
-## Direction Classification
+## Directional Feature Extraction
 
-The implemented RTL maps the signs of `dx` and `dy` to eight directional movement classes:
+For each pair of boundary coordinates, the FPGA calculates:
 
-```text
+``` text
+dx = x2 - x1
+dy = y2 - y1
+```
+
+The signs of `dx` and `dy` are used to classify movement into eight
+directional classes:
+
+``` text
         3   2   1
         4   ·   0
         5   6   7
 ```
 
-This is included as a **directional feature**, not as a claim that a full chain-code sequence was implemented.
+  Direction   Movement
+  ----------- ------------
+  0           East
+  1           North-East
+  2           North
+  3           North-West
+  4           West
+  5           South-West
+  6           South
+  7           South-East
 
-## Raspberry Pi Processing
+This provides directional information for boundary-based shape analysis.
 
-The Python implementation uses:
+------------------------------------------------------------------------
 
-- OpenCV
-- NumPy
-- PySerial
+## Distance Feature Computation
 
-The current processing code extracts the largest external contour and forms coordinate pairs for transfer.
+For two boundary points `(x1, y1)` and `(x2, y2)`:
 
-## FPGA Custom IP
+### D4 / Manhattan Distance
 
-The custom peripheral exposes memory-mapped input registers for:
+``` text
+D4 = |dx| + |dy|
+```
 
-```text
+### D8 / Chessboard Distance
+
+``` text
+D8 = max(|dx|, |dy|)
+```
+
+### Weighted Cityblock Distance
+
+The implemented logic uses:
+
+``` text
+Weighted Cityblock = |dx| + 2|dy|
+```
+
+### Squared Euclidean Distance
+
+``` text
+Squared Euclidean = dx² + dy²
+```
+
+The squared form avoids the square-root operation and reduces hardware
+computational requirements.
+
+------------------------------------------------------------------------
+
+## FPGA Implementation
+
+The FPGA design uses a **MicroBlaze processor system** with a custom
+AXI4-Lite peripheral.
+
+The custom IP provides memory-mapped input registers for:
+
+``` text
 x1
 y1
 x2
@@ -142,50 +214,167 @@ y2
 
 and output registers for:
 
-```text
+``` text
 dx
 dy
 D4
 D8
-direction
-squared Euclidean
+Direction
+Weighted Cityblock
+Squared Euclidean
 ```
 
-The IP uses an AXI4-Lite slave interface and is intended to be controlled by MicroBlaze.
+The IP is integrated into the MicroBlaze system through the AXI
+Interconnect.
+
+------------------------------------------------------------------------
+
+## UART Communication
+
+UART is used to transfer boundary-coordinate information between the
+Raspberry Pi and FPGA.
+
+An example coordinate record is:
+
+``` text
+S,233,21,232,22,E
+```
+
+where:
+
+-   `S` indicates the start of a coordinate record.
+-   The first pair represents `(x1, y1)`.
+-   The second pair represents `(x2, y2)`.
+-   `E` indicates the end of the record.
+
+This allows software-extracted boundary information to be passed to the
+FPGA for hardware-based feature computation.
+
+------------------------------------------------------------------------
 
 ## MicroBlaze Software
 
-The MicroBlaze test program writes coordinate values to the custom IP using `Xil_Out32()` and reads the computed values using `Xil_In32()`.
+The MicroBlaze application communicates with the custom AXI4-Lite
+peripheral through memory-mapped registers.
 
-The readable direction name and adaptive software-side weighted calculation are included in the test program.
+The software:
 
-## Important Scope Clarification
+1.  Writes coordinate values to the input registers.
+2.  Allows the FPGA logic to perform the calculations.
+3.  Reads the computed feature values.
+4.  Displays the resulting values through the serial terminal.
 
-The supplied academic report is titled around chain-code and distance feature extraction and includes chain-code theory, an 8-direction diagram, and a flowchart containing a chain-code stage.
+The test application is provided in:
 
-However, those report elements should be treated as **background/theoretical material** unless independently implemented and verified.
+``` text
+software/distance_test.c
+```
 
-For this repository, the completed implementation is represented as:
+------------------------------------------------------------------------
 
-**Image preprocessing → boundary extraction → coordinate transfer → directional movement classification + distance computation → feature output**
+## Repository Structure
 
-rather than:
+``` text
+Hardware-Software-Co-Design-for-Shape-Feature-Extraction/
+│
+├── README.md
+├── LICENSE
+│
+├── docs/
+│   ├── architecture.md
+│   └── implementation-notes.md
+│
+├── software/
+│   ├── image_boundary_extraction.py
+│   ├── requirements.txt
+│   └── distance_test.c
+│
+└── fpga/
+    └── distance_ip_v1_0_S00_AXI.v
+```
 
-**Image preprocessing → complete chain-code generation**
+------------------------------------------------------------------------
 
-## Evidence
+## Complete Workflow
 
-The project material includes:
+``` text
+INPUT IMAGE
+     ↓
+Raspberry Pi 4B
+     ↓
+Image Preprocessing
+     ↓
+Contour Extraction
+     ↓
+Boundary Coordinates
+     ↓
+Consecutive Coordinate Pairs
+     ↓
+UART
+     ↓
+Spartan-7 FPGA
+     ↓
+MicroBlaze
+     ↓
+Custom AXI4-Lite IP
+     ↓
+dx / dy
+     ↓
+Direction + Distance Computation
+     ↓
+Feature Output
+```
 
-- Raspberry Pi + Spartan-7 hardware setup
-- Raspberry Pi terminal output showing boundary-point transmission
-- Python/OpenCV contour-processing code
-- Vivado/MicroBlaze block design
-- Custom AXI4-Lite distance IP
-- MicroBlaze software for reading and displaying feature values
+------------------------------------------------------------------------
 
-Screenshots and diagrams can be placed under `docs/images/`.
+## Results
 
-## Academic Reference
+The implemented system demonstrates:
 
-The original lab report contains additional theoretical material on chain codes and distance metrics. The repository intentionally separates that theory from the verified implementation so that the project documentation remains technically accurate.
+-   Image preprocessing and contour extraction on Raspberry Pi.
+-   Extraction and transmission of ordered boundary coordinates.
+-   UART-based communication between Raspberry Pi and FPGA.
+-   Coordinate-difference computation on the FPGA.
+-   Eight-directional movement classification.
+-   FPGA-based computation of multiple distance metrics.
+-   Integration of custom AXI4-Lite IP with a MicroBlaze processor
+    system.
+
+The generated feature values include:
+
+``` text
+dx
+dy
+D4 (Manhattan)
+D8 (Chessboard)
+Weighted Cityblock
+Squared Euclidean
+Direction (0–7)
+```
+
+------------------------------------------------------------------------
+
+## Project Documentation
+
+Additional documentation is available in the [`docs`](docs/) directory.
+
+-   [`architecture.md`](docs/architecture.md) -- system architecture and
+    hardware--software partitioning
+-   [`implementation-notes.md`](docs/implementation-notes.md) --
+    implementation details and development notes
+
+------------------------------------------------------------------------
+
+## Technologies
+
+**Hardware:** Spartan-7 FPGA · Raspberry Pi 4B
+
+**FPGA Development:** Vivado · MicroBlaze · Verilog HDL · AXI4-Lite
+
+**Software:** Python · OpenCV · NumPy · PySerial · C
+
+**Communication:** UART
+
+**Concepts:** Image Processing · Contour Extraction · Boundary Feature
+Extraction · Directional Analysis · Distance Metrics ·
+Hardware--Software Co-Design
