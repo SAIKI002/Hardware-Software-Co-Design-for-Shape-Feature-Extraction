@@ -30,38 +30,12 @@ The system processes an input image through the following stages:
 
 ------------------------------------------------------------------------
 
-## System Architecture
 
-``` text
-                 RASPBERRY PI 4B
-        ┌─────────────────────────────┐
-        │ Image Input                 │
-        │       ↓                     │
-        │ Grayscale Conversion        │
-        │       ↓                     │
-        │ Thresholding / Binary Image │
-        │       ↓                     │
-        │ Contour Extraction          │
-        │       ↓                     │
-        │ Boundary Coordinates        │
-        │       ↓                     │
-        │ Coordinate Pair Formation   │
-        └─────────────┬───────────────┘
-                      │ UART
-                      ↓
-              ┌─────────────────────┐
-              │    Spartan-7 FPGA   │
-              │     MicroBlaze      │
-              │         ↓           │
-              │    AXI4-Lite IP     │
-              │         ↓           │
-              │    dx / dy          │
-              │ Direction (0–7)     │
-              │ D4 / D8             │
-              │ Weighted Cityblock  │
-              │ Squared Euclidean   │
-              └─────────────────────┘
-```
+## System Block Diagram
+
+The system follows a hardware–software co-design approach in which the Raspberry Pi 4B performs image preprocessing and boundary-coordinate extraction, while the Spartan-7 FPGA performs directional and distance-based feature computation. UART is used for data transfer between the Raspberry Pi and FPGA, with a MicroBlaze processor interfacing with the custom AXI4-Lite feature-computation IP.
+
+![Raspberry Pi–FPGA System Block Diagram](images/block-diagram.png)
 
 ------------------------------------------------------------------------
 
